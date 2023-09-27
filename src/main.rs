@@ -121,7 +121,6 @@ async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
         .map(|k| Ok(k.key_str()?.to_string()))
         .collect::<Result<Vec<String>>>()?;
 
-    println!("Found {} keys", keys.len());
     let mut tasks = Vec::new();
     for key in keys {
         tasks.push(tokio::spawn(get_key(
@@ -143,7 +142,6 @@ async fn get_key(
     client: Arc<EtcdClient>,
     output_dir: ClioPath,
 ) -> Result<(), anyhow::Error> {
-    println!("Getting key {}", key);
     let get_result = client
         .kv_client()
         .get(key.clone(), None)
