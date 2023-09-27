@@ -5,6 +5,9 @@ use clap::Parser;
 use clio::*;
 use etcd_client::{Client as EtcdClient, GetOptions};
 use reqwest::Client;
+use tokio::process::Command;
+
+pub(crate) const OUGER_SERVER_PORT: u16 = 9998;
 
 /// A program to regenerate cluster certificates, keys and tokens
 #[derive(Parser)]
@@ -79,7 +82,7 @@ fn main() -> Result<()> {
 
 async fn ouger(ouger_path: &str, raw_etcd_value: &[u8]) -> Result<Vec<u8>> {
     let res = Client::new()
-        .post(format!("http://localhost:9090/{}", ouger_path))
+        .post(format!("http://localhost:{OUGER_SERVER_PORT}/{ouger_path}"))
         .body(raw_etcd_value.to_vec())
         .send()
         .await
@@ -99,6 +102,10 @@ async fn ouger(ouger_path: &str, raw_etcd_value: &[u8]) -> Result<Vec<u8>> {
 }
 
 async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
+    let mut ouger_command = Command::new("ouger_server")
+        .args(["--port", &OUGER_SERVER_PORT.to_string()])
+        .spawn()?;
+
     let client = Arc::new(
         EtcdClient::connect([parsed_cli.etcd_endpoint.as_str()], None)
             .await
@@ -133,6 +140,8 @@ async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
     for task in tasks {
         task.await??;
     }
+
+    ouger_command.kill().await.context("killing ouger server")?;
 
     Ok(())
 }
