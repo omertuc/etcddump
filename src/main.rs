@@ -69,8 +69,8 @@ fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async { main_internal(parsed_cli).await })
 }
 
-async fn ouger(ouger_path: &str, raw_etcd_value: &[u8]) -> Result<Vec<u8>> {
-    let res = Client::new()
+async fn ouger(client: &Client, ouger_path: &str, raw_etcd_value: &[u8]) -> Result<Vec<u8>> {
+    let res = client
         .post(format!("http://localhost:{OUGER_SERVER_PORT}/{ouger_path}"))
         .body(raw_etcd_value.to_vec())
         .send()
@@ -117,9 +117,12 @@ async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
         .map(|k| Ok(k.key_str()?.to_string()))
         .collect::<Result<Vec<String>>>()?;
 
+    let reqclient = Client::new();
+
     let mut tasks = Vec::new();
     for key in keys {
         tasks.push(tokio::spawn(get_key(
+            reqclient.clone(),
             key,
             Arc::clone(&client),
             parsed_cli.output_dir.clone(),
@@ -136,6 +139,7 @@ async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
 }
 
 async fn get_key(
+    reqclient: Client,
     key: String,
     client: Arc<EtcdClient>,
     output_dir: ClioPath,
@@ -148,7 +152,7 @@ async fn get_key(
     if let Some(value) = get_result.kvs().first() {
         let raw_etcd_value = value.value();
 
-        let decoded_value = ouger("decode", raw_etcd_value)
+        let decoded_value = ouger(&reqclient, "decode", raw_etcd_value)
             .await
             .context("decoding value with ouger")?;
 
