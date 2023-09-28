@@ -13,12 +13,11 @@ pub(crate) const OUGER_SERVER_PORT: u16 = 9998;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Cli {
-    /// etcd endpoint of etcd instance to recertify
+    /// etcd endpoint of etcd instance to dump
     #[clap(long)]
     pub(crate) etcd_endpoint: String,
 
-    /// Directory to recertify, such as /var/lib/kubelet, /etc/kubernetes and
-    /// /etc/machine-config-daemon. Can specify multiple times
+    /// dump output dir
     #[clap(long, value_parser = clap::value_parser!(ClioPath).exists().is_dir())]
     pub(crate) output_dir: ClioPath,
 }
