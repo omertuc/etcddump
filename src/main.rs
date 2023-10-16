@@ -1,13 +1,11 @@
-use std::sync::Arc;
-
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use clio::*;
 use etcd_client::{Client as EtcdClient, GetOptions};
 use reqwest::Client;
-use tokio::process::Command;
+use std::sync::Arc;
 
-pub(crate) const OUGER_SERVER_PORT: u16 = 9998;
+mod ouger;
 
 /// A program to regenerate cluster certificates, keys and tokens
 #[derive(Parser)]
@@ -69,31 +67,8 @@ fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async { main_internal(parsed_cli).await })
 }
 
-async fn ouger(client: &Client, ouger_path: &str, raw_etcd_value: &[u8]) -> Result<Vec<u8>> {
-    let res = client
-        .post(format!("http://localhost:{OUGER_SERVER_PORT}/{ouger_path}"))
-        .body(raw_etcd_value.to_vec())
-        .send()
-        .await
-        .context("ouger server not running")?;
-
-    ensure!(
-        res.status().is_success(),
-        "ouger server returned non-success status code: {}",
-        res.status()
-    );
-    ensure!(
-        res.content_length().is_some(),
-        "ouger server returned no content length"
-    );
-
-    Ok(res.bytes().await?.to_vec())
-}
-
 async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
-    let mut ouger_command = Command::new("ouger_server")
-        .args(["--port", &OUGER_SERVER_PORT.to_string()])
-        .spawn()?;
+    let _ouger_child_process = ouger::launch_ouger_server().await?;
 
     let client = Arc::new(
         EtcdClient::connect([parsed_cli.etcd_endpoint.as_str()], None)
@@ -133,8 +108,6 @@ async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
         task.await??;
     }
 
-    ouger_command.kill().await.context("killing ouger server")?;
-
     Ok(())
 }
 
@@ -152,7 +125,7 @@ async fn get_key(
     if let Some(value) = get_result.kvs().first() {
         let raw_etcd_value = value.value();
 
-        let decoded_value = ouger(&reqclient, "decode", raw_etcd_value)
+        let decoded_value = ouger::ouger(&reqclient, "decode", raw_etcd_value)
             .await
             .context("decoding value with ouger")?;
 
