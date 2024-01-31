@@ -62,9 +62,9 @@ pub(crate) async fn launch_ouger_server() -> Result<OugerChildProcess> {
     let ouger_child_process = OugerChildProcess(
         Command::new("ouger_server")
             .args(["--port", &OUGER_SERVER_PORT.to_string()])
-            .spawn()?,
+            .spawn()
+            .context("running ouger_server binary")?,
     );
     wait_for_ouger().await;
     Ok(ouger_child_process)
 }
-

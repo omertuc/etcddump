@@ -68,7 +68,9 @@ fn main() -> Result<()> {
 }
 
 async fn main_internal(parsed_cli: ParsedCLI) -> Result<()> {
-    let _ouger_child_process = ouger::launch_ouger_server().await?;
+    let _ouger_child_process = ouger::launch_ouger_server()
+        .await
+        .context("launching ouger server")?;
 
     let client = Arc::new(
         EtcdClient::connect([parsed_cli.etcd_endpoint.as_str()], None)
